@@ -46,8 +46,11 @@ const chatSchema = new Schema({
 // Define the message schema
 const messageSchema = new Schema({
   chatSessionId: { type: String, required: true },
+  chatName: { type: String, required: true },
+  userId: { type: String, required: true },
   role: { type: String },
   content: { type: String, required: true },
+  createdAt: { type: Date, default: Date.now },
 });
 // Create the Message model
 const Message = mongoose.model('Message', messageSchema);
@@ -146,7 +149,7 @@ app.delete('/chat/:chatSessionId', async (req, res) => {
 app.get('/chat/user/:userId', async (req, res) => {
   try {
     const { userId } = req.params;
-    const chats = await Chat.find({ userId })
+    const chats = await Message.find({ userId })
       .sort({ lastMessageSent: -1 })
       .select('chatName chatSessionId');
 
