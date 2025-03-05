@@ -6,16 +6,24 @@ const app = express();
 
 app.use(express.json());
 
-// Define the user schema
+// Define the user schemai
 const userSchema = new Schema({
   name: { type: String, required: true },
   email: { type: String, required: true, unique: true },
   password: { type: String, required: true },
 });
+
+// Define the chat schema
+const chatSchema = new Schema({
+  chatName: { type: String, required: true },
+  chatSessionId: { type: String, required: true, unique: true },
+  userId: { type: String, required: true },
+  lastMessageSent: { type: Date, default: Date.now },
+});
 // Define the message schema
 const messageSchema = new Schema({
   chatSessionId: { type: String, required: true },
-  role: { type: String, required: true },
+  role: { type: String },
   content: { type: String, required: true },
 });
 // Create the Message model
@@ -23,6 +31,8 @@ const Message = mongoose.model('Message', messageSchema);
 
 // Create the user model
 const User = mongoose.model('User', userSchema);
+
+const Chat = mongoose.model('Chat', chatSchema);
 
 app.get('/', (req, res) => {
   const name = process.env.NAME || 'World';
@@ -61,8 +71,23 @@ app.post('/signup', async (req, res) => {
 // Create the /messages route
 app.post('/messages', async (req, res) => {
   try {
-    const { chatSessionId, chatName, role, content } = req.body;
-    const newMessage = new Message({ chatSessionId,chatName, role, content });
+    const { chatSessionId, role, content } = req.body;
+    const newMessage = new Message({ chatSessionId, role, content });
+    await newMessage.save();
+    await Chat.updateOne(
+      { chatSessionId },
+      { lastMessageSent: new Date() }
+    );
+    res.status(201).json({ message: 'Message created successfully', message: newMessage });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+app.post('/chat', async (req, res) => {
+  try {
+    const { userId, chatName, chatSessionId } = req.body;
+    const newMessage = new Chat({ userId, chatName, chatSessionId });
     await newMessage.save();
     res.status(201).json({ message: 'Message created successfully', message: newMessage });
   } catch (error) {
@@ -96,6 +121,21 @@ app.delete('/messages/:chatSessionId', async (req, res) => {
       message: `Successfully deleted ${deletedMessages.deletedCount} messages for chat session ${chatSessionId}`,
     });
   } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Create the /chat/user/:userId route to get user chat
+app.get('/chat/user/:userId', async (req, res) => {
+  try {
+    const { userId } = req.params;
+    const chats = await Chat.find({ userId })
+      .sort({ lastMessageSent: -1 })
+      .select('chatName chatSessionId');
+
+    res.status(200).json({ chats });
+  } catch (error) {
+    console.log(error);
     res.status(500).json({ error: error.message });
   }
 });
